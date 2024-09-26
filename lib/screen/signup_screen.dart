@@ -15,42 +15,48 @@ class _SignupScreenState extends State<SignupScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String errorMessage = '';
 
+  // ฟังก์ชันตรวจสอบและลงทะเบียนผู้ใช้
   void _signUp() async {
     String email = _emailController.text.trim();
     String password = _passwordController.text.trim();
     String confirmPassword = _confirmPasswordController.text.trim();
 
+    // ตรวจสอบว่าไม่ได้เว้นช่องว่าง
     if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
       setState(() {
-        errorMessage = 'Please fill in all fields';
+        errorMessage = 'กรุณากรอกข้อมูลให้ครบ';
       });
       return;
     }
 
+    // ตรวจสอบความเหมือนกันของรหัสผ่าน
     if (password != confirmPassword) {
       setState(() {
-        errorMessage = 'Passwords do not match';
+        errorMessage = 'รหัสผ่านไม่ตรงกัน';
       });
       return;
     }
 
+    // ตรวจสอบความยาวของรหัสผ่าน
     if (password.length < 8) {
       setState(() {
-        errorMessage = 'Password must be at least 8 characters long';
+        errorMessage = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
       });
       return;
     }
 
+    // ดำเนินการลงทะเบียนผู้ใช้ผ่าน Firebase
     try {
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
-      // If sign-up is successful, navigate to Signin screen
-      Navigator.pushReplacementNamed(context, '/signin');
+      setState(() {
+        errorMessage = 'สมัครสมาชิกสำเร็จ';
+      });
     } on FirebaseAuthException catch (e) {
       setState(() {
-        errorMessage = e.message ?? 'An error occurred.';
+        errorMessage = e.message ?? 'เกิดข้อผิดพลาด';
       });
     }
   }
@@ -63,7 +69,7 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
       body: Center(
         child: Container(
-          height: 380,
+          height: 420,
           width: 300,
           padding: const EdgeInsets.all(18),
           decoration: const BoxDecoration(
@@ -113,6 +119,14 @@ class _SignupScreenState extends State<SignupScreen> {
               ElevatedButton(
                 onPressed: _signUp,
                 child: const Text("Sign up"),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: () {
+                  // กลับไปที่หน้า Signin เมื่อกดปุ่มนี้
+                  Navigator.pushReplacementNamed(context, '/signin');
+                },
+                child: const Text("Go to Signin"),
               ),
             ],
           ),

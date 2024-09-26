@@ -1,8 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // นำเข้า Firestore
 import 'package:flutter_6_9/screen/signin_screen.dart';
-import 'package:flutter_6_9/firebase_options.dart'; // นำเข้า firebase_options.dart ที่สร้างจาก FlutterFire CLI
+import 'package:flutter_6_9/firebase_options.dart';
+import 'package:flutter_6_9/screen/signup_screen.dart'; // นำเข้า firebase_options.dart ที่สร้างจาก FlutterFire CLI
 
 
 void main() async {
@@ -21,14 +23,19 @@ class MainApp extends StatelessWidget {
  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Firebase Auth',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.pink),
-        useMaterial3: true,
+        primarySwatch: Colors.blue,
       ),
-      home: const SigninScreen() //TodoApp(),
+      initialRoute: '/signup',  // กำหนดหน้าแรกเป็น Signup
+      routes: {
+        '/signup': (context) => const SignupScreen(),
+        '/signin': (context) => const SigninScreen(),
+        '/todo': (context) => const TodoApp(),
+      },
     );
   }
-} 
+}
 
 class TodoApp extends StatefulWidget {
   const TodoApp({super.key});
@@ -152,86 +159,93 @@ class _TodoAppState extends State<TodoApp> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Todo"),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('todos').snapshots(),
-        builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text("Todo"),
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout),
+          onPressed: () async {
+            await FirebaseAuth.instance.signOut(); // ล็อกเอาต์จาก Firebase
+            Navigator.pushReplacementNamed(context, '/signin'); // นำทางกลับไปที่หน้า Signin
+          },
+        ),
+      ],
+    ),
+    body: StreamBuilder(
+      stream: FirebaseFirestore.instance.collection('todos').snapshots(),
+      builder: (context, AsyncSnapshot<QuerySnapshot> snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
 
-          final todos = snapshot.data!.docs;
+        final todos = snapshot.data!.docs;
 
-          return ListView.builder(
-            itemCount: todos.length,
-            itemBuilder: (context, index) {
-              var todo = todos[index];
-              final data = todo.data() as Map<String, dynamic>; // แปลงข้อมูลให้เป็น Map
+        return ListView.builder(
+          itemCount: todos.length,
+          itemBuilder: (context, index) {
+            var todo = todos[index];
+            final data = todo.data() as Map<String, dynamic>; // แปลงข้อมูลให้เป็น Map
 
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10.0),
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 10.0),
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                elevation: 4,
+                child: ListTile(
+                  title: Text(
+                    data['title'],
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      decoration: (data.containsKey('completed') && data['completed'])
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                    ),
                   ),
-                  elevation: 4,
-                  child: ListTile(
-                    title: Text(
-                      data['title'],
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        // ตรวจสอบว่าฟิลด์ 'completed' มีอยู่หรือไม่ ถ้าไม่มีกำหนดเป็น false
-                        decoration: (data.containsKey('completed') && data['completed'])
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
+                  subtitle: Text(data['details']),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          showTodoDialog(
+                            context,
+                            docId: todo.id,
+                            title: data['title'],
+                            details: data['details'],
+                            completed: data.containsKey('completed') ? data['completed'] : false,
+                          );
+                        },
                       ),
-                    ),
-                    subtitle: Text(data['details']),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () {
-                            showTodoDialog(
-                              context,
-                              docId: todo.id,
-                              title: data['title'],
-                              details: data['details'],
-                              // ตรวจสอบฟิลด์ 'completed' ก่อน ถ้าไม่มีให้กำหนดเป็น false
-                              completed: data.containsKey('completed') ? data['completed'] : false,
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () {
-                            deleteTodoFromFirestore(todo.id);
-                          },
-                        ),
-                      ],
-                    ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () {
+                          deleteTodoFromFirestore(todo.id);
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showTodoDialog(context); // เปิด Dialog เพื่อเพิ่มข้อมูลใหม่
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+              ),
+            );
+          },
+        );
+      },
+    ),
+    floatingActionButton: FloatingActionButton(
+      onPressed: () {
+        showTodoDialog(context); // เปิด Dialog เพื่อเพิ่มข้อมูลใหม่
+      },
+      child: const Icon(Icons.add),
+    ),
+  );
+}
 }
